@@ -1,0 +1,19 @@
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - blast=2.13.0=hf3cf87c_0
+  - bzip2=1.0.8 
+  - curl=7.85.0=h5eee18b_0
+  - entrez-direct=16.2=he881be0_1
+  - libgcc-ng=12.2.0=h65d4601_19
+  - libstdcxx-ng=12.2.0=h46fd767_19
+  - libzlib=1.2.13=h166bdaf_4
+  - pcre=8.45=h9c3ff4c_0
+  - perl
+  - perl-archive-tar=2.40=pl5321hdfd78af_0
+  - perl-json=4.10=pl5321hdfd78af_0
+  - perl-list-moreutils=0.430=pl5321hdfd78af_0
+  - zlib=1.2.13=h166bdaf_4
+  - parallel=20220922=ha770c72_0

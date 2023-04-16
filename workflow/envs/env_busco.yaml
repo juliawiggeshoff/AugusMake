@@ -1,0 +1,19 @@
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - busco=5.4.4
+  - augustus=3.5.0
+  - biopython=1.80 
+  - blast=2.13.0
+  - fonts-conda-ecosystem=1
+  - hmmer=3.1b2
+  - metaeuk=6.a5d39d9
+  - pandas=1.5.2
+  - prodigal=2.6.3
+  - python=3.9.12
+  - r-base=4.2.2
+  - r-ggplot2=3.4.0
+  - sepp
+  - wget=1.20.3

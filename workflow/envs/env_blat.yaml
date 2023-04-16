@@ -1,0 +1,7 @@
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - blat=36
+  - ucsc-pslcdnafilter=366

@@ -1,0 +1,8 @@
+channels:
+  - bioconda
+  - HCC
+  - conda-forge
+  - defaults
+dependencies:
+  - augustus=3.5.0
+  - blast=2.13.0

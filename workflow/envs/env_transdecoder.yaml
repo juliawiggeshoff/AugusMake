@@ -1,0 +1,11 @@
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - transdecoder=5.5.0=pl5321hdfd78af_5
+  - bioconductor-seqlogo
+  - perl-db-file
+  - perl-uri
+  - r-ggplot2
+  - perl=5.32.1

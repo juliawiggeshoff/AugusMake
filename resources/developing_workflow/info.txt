@@ -1,0 +1,7 @@
+This is where all of your input data has to be stored:
+- Genome 
+- Transcriptome
+- Paired-end RNA-Seq data
+Keep in mind any data downloaded from the SRA database will also be stored here
+The name of this folder, i.e. developing_workflow, has to be stored under "project_name" in the config/config.yaml. Output files will be named according to "project_name"
+

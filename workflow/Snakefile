@@ -1,0 +1,890 @@
+import pandas as pd
+
+configfile: "config/config.yaml"
+
+samples_df=pd.read_table(config["sample_info"], dtype=str, index_col="Species_name")
+samples_dict=samples_df.to_dict()
+
+def genome_fasta(wildcards):
+    return "resources/" + config["project_name"] + "/" + samples_dict["Genome"][wildcards.species]
+
+def transcriptome_fasta(wildcards):
+    if samples_dict["Transcriptome"][wildcards.species].lower() != "none":
+        #return path to transcriptome if already provided by user in table
+        return "resources/" + config["project_name"] + "/" + samples_dict["Transcriptome"][wildcards.species]
+    elif samples_dict["Transcriptome"][wildcards.species].lower() == "none" and samples_dict["BUSCO_lineage"][wildcards.species].lower() != "none":
+        #return path to transcriptome if assembled by trinity 
+        return "results/"  + config["project_name"] + "/" + wildcards.species \ 
+        + "/trinity_out_dir_" + wildcards.species + "/Trinity-GG.fasta"
+
+def fwd_fasta(wildcards):
+    if samples_dict["Forward"][wildcards.species].lower() != "none":
+        #return path to fwd file if already provided by user in table
+        return "resources/" + config["project_name"] + "/" + samples_dict["Forward"][wildcards.species]
+    elif samples_dict["SRA"][wildcards.species].lower() != "none":
+        #return path to fwd file if downloaded by sra tools
+        return "resources/" + config["project_name"] + "/SRA/" + samples_dict["SRA"][wildcards.species] + "_1.fastq.gz"
+
+def rev_fasta(wildcards):
+    if samples_dict["Reverse"][wildcards.species].lower() != "none":
+        #return path to rev file if already provided by user in table
+        return "resources/" + config["project_name"] + "/" + samples_dict["Reverse"][wildcards.species]
+    elif samples_dict["SRA"][wildcards.species].lower() != "none":
+        #return path to rev file if downloaded by sra tools
+        return "resources/" + config["project_name"] + "/SRA/" + samples_dict["SRA"][wildcards.species] + "_2.fastq.gz"
+
+def busco_info(wildcards):
+    if samples_dict["BUSCO_lineage"][wildcards.species].lower() != "none":
+        #return name of busco lineage
+        return samples_dict["BUSCO_lineage"][wildcards.species]
+
+def adapter_info(wildcards):
+    if samples_dict["Adapter"][wildcards.species].lower() != "none":
+        #return adapter info, either just filename (trimommatic related) 
+        #or path to custom file
+        return samples_dict["Adapter"][wildcards.species]
+
+def augustus_ab_initio_info(wildcards):
+    if samples_dict["Augustus_ab_initio_species"][wildcards.species].lower() != "none":
+        #return name of species with parameters already provided by augustus
+        #or for a new species trained by this workflow
+        return samples_dict["Augustus_ab_initio_species"][wildcards.species]
+
+def augustus_hints_info(wildcards):
+    if samples_dict["Augustus_hints_species"][wildcards.species].lower() != "none":
+        #return name of species with parameters already provided by augustus
+        #or for a new species trained by this workflow
+        return samples_dict["Augustus_hints_species"][wildcards.species]
+
+#species lists for {species} expansion: transcriptome_sp_ls, genome_guided_sp_ls
+#augustus_training_sp_ls, augustus_hints_sp_ls, augustus_ab_inition_sp_ls
+
+#species with transcriptome, either provided or assembled
+#if there is a BUSCO_lineage listed in the table, there is or will be a transcriptome 
+#to be analyzed by BUSCO
+transcriptome_sp_ls=[key for key, value in samples_dict["BUSCO_lineage"].items() if value.lower() != "none"]
+#species without transcriptome file provided by user; genone-guided assembly with Trinity
+genome_guided_sp_ls=[key for combined_dicts in [samples_dict["SRA"], samples_dict["Forward"]] for key, value in combined_dicts.items() if value.lower() != "none"]
+#list of species to train augustus
+augustus_training_sp_ls=[key for key, value in samples_dict["Augustus_training"].items() if value.lower() == "yes"] 
+#list of species to predict genes with hints with augustus
+augustus_hints_sp_ls=[key for key, value in samples_dict["Augustus_hints"].items() if value.lower() == "yes"] 
+#list of species to predict genes using existing parameters (previously trained species) with augustus
+augustus_ab_inition_sp_ls=[key for key, value in samples_dict["Augustus_ab_initio"].items() if value.lower() == "yes"]
+
+accession_ls=[value for key, value in samples_dict["SRA"].items() if value.lower() != "none"]
+#busco lineage lineage for rule download_busco 
+busco_lineages_ls=list(set([value for key, value in samples_dict["BUSCO_lineage"].items() if value.lower() != "none"]))
+
+#suffix for file naming of fastqc results post-trimming
+suffixes_ls=["fwd_paired", "rev_paired", "fwd_unpaired", "rev_unpaired"]
+
+#rules executed on head node from cluster (as internet access is required)
+localrules: all, download_busco, prefetch 
+
+rule all:
+    input:
+        #busco lineage download
+        expand("resources/busco_downloads/lineages/{lineage}/", lineage=busco_lineages_ls),
+        #busco flag file
+        expand("results/{project}/all_species_busco/flag/short_summary.{species}.DONE", project=config["project_name"], species=transcriptome_sp_ls),
+        #combined results from all species who had their transcriptomes assembled by trinity guided by a genome
+        expand("results/{project}/all_species_busco/busco_figure_all_species.png", project=config["project_name"]),
+        #individual busco results
+        expand("results/{project}/{species}/busco_figure_{species}.png", project=config["project_name"], species=transcriptome_sp_ls),
+        #FastQC results pre and post trimming from assembled transcriptomes
+        expand("results/{project}/{species}/fastqc/pre-trim/{species}_fwd_fastqc.html", project=config["project_name"], species=genome_guided_sp_ls),
+        expand("results/{project}/{species}/fastqc/pre-trim/{species}_fwd_fastqc.zip", project=config["project_name"], species=genome_guided_sp_ls),
+        expand("results/{project}/{species}/fastqc/pre-trim/{species}_rev_fastqc.html", project=config["project_name"], species=genome_guided_sp_ls),
+        expand("results/{project}/{species}/fastqc/pre-trim/{species}_rev_fastqc.zip", project=config["project_name"], species=genome_guided_sp_ls),
+        expand("results/{project}/{species}/fastqc/post-trim/{species}_trimmed_{suffix}_fastqc.html", project=config["project_name"], species=genome_guided_sp_ls, suffix=suffixes_ls),
+        expand("results/{project}/{species}/fastqc/post-trim/{species}_trimmed_{suffix}_fastqc.zip", project=config["project_name"], species=genome_guided_sp_ls, suffix=suffixes_ls),
+        #Augustus training
+        expand("results/{project}/{species}/augustus_training_{species}/main_results/{species}_noerror_genes_refiltered_bonafide.gbff", project=config["project_name"], species=augustus_training_sp_ls),
+        expand("results/{project}/{species}/augustus_training_{species}/main_results/{species}_noerror_genes_refiltered_bonafide.gbff.train", project=config["project_name"], species=augustus_training_sp_ls),
+        expand("results/{project}/{species}/augustus_training_{species}/main_results/{species}_noerror_genes_refiltered_bonafide.gbff.test", project=config["project_name"], species=augustus_training_sp_ls),
+        expand("results/{project}/{species}/augustus_training_{species}/main_results/{species}_augustus_training.out", project=config["project_name"], species=augustus_training_sp_ls),
+        expand("results/{project}/{species}/augustus_training_{species}/main_results/{species}_error_genes.lst", project=config["project_name"], species=augustus_training_sp_ls),
+        #Augustus hints
+        expand("results/{project}/{species}/augustus_hints_{species}/main_results/{species}_augustus_predicted_with_hints.gff", project=config["project_name"], species=augustus_hints_sp_ls),
+        expand("results/{project}/{species}/augustus_hints_{species}/extrinsic.E.{project}.{species}.cfg", project=config["project_name"], species=augustus_hints_sp_ls),
+        #Augustus ab inition 
+        expand("results/{project}/{species}/augustus_ab_initio_{species}/main_results/{species}_augustus_ab_initio_genes.gff3", project=config["project_name"], species=augustus_ab_inition_sp_ls),
+        expand("results/{project}/{species}/augustus_ab_initio_{species}/main_results/{species}_augustus_ab_initio.err", project=config["project_name"], species=augustus_ab_inition_sp_ls)
+
+###########################################################################
+###                                                                     ###
+###                                                                     ###
+### rules for genome guided de novo transcriptome assembly with trinity ###
+###                                                                     ###
+###                                                                     ###
+###########################################################################
+
+#prefetch downloads to a directory named by {accession}
+#temporary output removed after subsequent steps finished correctly
+rule prefetch:
+    output:
+        temp("resources/{project}/SRA/{accession}/{accession}.sra") 
+    params:
+        outdir_sra="resources/{project}/SRA/"
+    conda:
+        "envs/env_sratools.yaml"
+    log:
+        "results/{project}/logs/prefetch_{accession}.log"
+    shell:
+        "(prefetch {wildcards.accession} --output-directory {params.outdir_sra} && "
+        "echo \"{output} DONE\") &> {log}"
+
+#fasterq_dump extracts and pigz parallelizes the compression of fastq files
+checkpoint fasterq_dump:
+    input:
+        "resources/{project}/SRA/{accession}/{accession}.sra" 
+    output:
+        fwd="resources/{project}/SRA/{accession}_1.fastq.gz",
+        rev="resources/{project}/SRA/{accession}_2.fastq.gz"
+    params:
+        outdir="resources/{project}/SRA"
+    conda:
+        "envs/env_sratools.yaml"
+    log: 
+        "results/{project}/logs/fasterq_dump_{accession}.log"
+    threads: 6
+    shell:
+        "(fasterq-dump {input} --outdir {params.outdir} --threads {threads} && "
+        "echo \"fasterq-dump\" finished extracting {input} && "
+        "pigz -p {threads} {params.outdir}/{wildcards.accession}*.fastq && "
+        "echo \"pigz finished compressing {output.fwd} {output.rev}\") &> {log}"
+
+#creates flag file to indicate that prefetch + fasterq_dump finished correctly
+#for each {accession}
+rule flag_fasterq_dump:
+    input:
+        fwd=lambda wildcards: checkpoints.fasterq_dump.get(**wildcards).output.fwd,
+        rev=lambda wildcards: checkpoints.fasterq_dump.get(**wildcards).output.rev
+    output:
+        touch("resources/{project}/SRA/{accession}_sra_download.done")
+    shell:
+        "echo {input.fwd} > {output} && echo {input.rev} > {output}"
+
+#creates a flag file once all flag files from rule flag_faster_dump are ready
+rule all_fasterq_dump_done:
+    input:
+        expand("resources/{project}/SRA/{accession}_sra_download.done", project=config["project_name"], accession=accession_ls)
+    output:
+        all_SRA_downloads="resources/{project}/all_SRA_downloads.done"
+    shell:
+        "echo {input} > {output.all_SRA_downloads}"
+
+
+## "resources/{project}/all_SRA_downloads.done" as input for rules raw_fastqc and trimmomatic ensures the rules will only run once all SRA downloads are finished
+## not perfect, as LITERALLY all SRA downloads have to be ready before any trimming starts if there are both local and downloaded data or just downloaded rna-seq,
+## but it will make sure no MissingInputException is thrown
+
+#generates fastqc reports pre-trimming
+rule raw_fastqc:
+    input:
+        fwd=fwd_fasta,
+        rev=rev_fasta,
+        all_SRA_downloads="resources/{project}/all_SRA_downloads.done" if accession_ls else [] #file only required as input if accession_ls not empty
+    output:
+        fwd_html=report(
+            "results/{project}/{species}/fastqc/pre-trim/{species}_fwd_fastqc.html",
+            #caption="report/fastqc_results.rst",
+            category="FastQC",
+            subcategory="Pre-trimming",
+            labels={"Project": "{project}", "Species": "{species}", "Read Type": "fwd_paired", "Type": "Plot and Table"}),
+
+        fwd_zip="results/{project}/{species}/fastqc/pre-trim/{species}_fwd_fastqc.zip",
+
+        rev_html=report(
+            "results/{project}/{species}/fastqc/pre-trim/{species}_rev_fastqc.html",
+            #caption="report/fastqc_results.rst",
+            category="FastQC",
+            subcategory="Pre-trimming",
+            labels={"Project": "{project}", "Species": "{species}", "Read Type": "rev_paired", "Type": "Plot and Table"}),
+
+        rev_zip="results/{project}/{species}/fastqc/pre-trim/{species}_rev_fastqc.zip"
+    params:
+        fastqc_pretrim_outdir="results/{project}/{species}/fastqc/pre-trim/"
+    threads: 2
+    log:
+        "results/{project}/{species}/logs/raw_fastqc_{species}.log"
+    conda:
+        "envs/env_fastqc.yaml"
+    shell:
+        "(zcat {input.fwd} | fastqc stdin:{wildcards.species}_fwd -o {params.fastqc_pretrim_outdir} -t {threads} && "
+        "zcat {input.rev} | fastqc stdin:{wildcards.species}_rev -o {params.fastqc_pretrim_outdir} -t {threads}) &> {log}"
+
+rule trimmomatic:
+    input:
+        fwd=fwd_fasta, 
+        rev=rev_fasta,
+        all_SRA_downloads="resources/{project}/all_SRA_downloads.done" if accession_ls else [] #file only required as input if accession_ls not empty
+    output:
+        fwd_p="results/{project}/{species}/{species}_trimmed_fwd_paired.fastq.gz",
+        fwd_u="results/{project}/{species}/{species}_trimmed_fwd_unpaired.fastq.gz",
+        rev_p="results/{project}/{species}/{species}_trimmed_rev_paired.fastq.gz",
+        rev_u="results/{project}/{species}/{species}_trimmed_rev_unpaired.fastq.gz"
+    params:
+        clip="\"ILLUMINACLIP:",
+        adapter=adapter_info,
+        #trim_params and info_len should be made more flexible
+        #per user settings (individualize in table or general in config.yaml?)
+        #change in later versions
+        trim_params=":2:30:9:1:true\"",
+        info_len="MAXINFO:80:0.5 MINLEN:80"
+    threads: workflow.cores * 0.3
+    conda:
+        "envs/env_trimmomatic.yaml"
+    log:
+        "results/{project}/{species}/logs/trimmomatic_{species}.log"
+    shell:
+        "trimmomatic PE -threads {threads} -phred33 {input.fwd} {input.rev} {output.fwd_p} {output.fwd_u} "
+        "{output.rev_p} {output.rev_u} {params.clip}{params.adapter}{params.trim_params} {params.info_len} &> {log}"
+
+#generates fastqc reports post-trimming
+rule trimmed_fastqc:
+    input:
+        trimmed="results/{project}/{species}/{species}_trimmed_{suffix}.fastq.gz"
+    output:
+        out_html=report(
+            "results/{project}/{species}/fastqc/post-trim/{species}_trimmed_{suffix}_fastqc.html",
+            #caption="report/fastqc_results.rst",
+            category="FastQC",
+            subcategory="Post-trimming",
+            labels={"Project": "{project}", "Species": "{species}", "Read Type": "{suffix}", "Type": "Plot and Table"}),
+
+        out_zip="results/{project}/{species}/fastqc/post-trim/{species}_trimmed_{suffix}_fastqc.zip"
+    params:
+        fastqc_posttrim_outdir="results/{project}/{species}/fastqc/post-trim/"    
+    threads: 2
+    log:
+        "results/{project}/{species}/logs/trimmed_fastqc_{species}_{suffix}.log"
+    conda:
+        "envs/env_fastqc.yaml"
+    shell:
+       "(zcat {input.trimmed} | fastqc stdin:{wildcards.species}_trimmed_{wildcards.suffix} "
+       "-o {params.fastqc_posttrim_outdir} -t {threads}) &> {log}"
+
+#indexes genome
+rule gmap_build:
+    input:
+        genome=genome_fasta        
+    output:
+        index_dir=directory("results/{project}/{species}/indexed_genome_{species}/")
+    params:
+        out_dir="results/{project}/{species}",
+        prefix="indexed_genome_{species}"
+    conda:
+        "envs/env_gmap.yaml"
+    log:
+        "results/{project}/{species}/logs/gmap_build_{species}.log",
+    shell:
+        "gmap_build --dir {params.out_dir} {input.genome} --genomedb {params.prefix} &> {log}"
+
+#maps trimmed paired-end files against indexed genome
+#can take a lot of wall-clock time (days-weeks)
+#reason: conda distribution does not include faster versions from gsnap,
+#e.g. gsnap.avx512 and gsnap.avx2, as seen in  messages in {log}
+rule gsnap:
+    input:
+        index_dir="results/{project}/{species}/indexed_genome_{species}/",
+        fwd_p="results/{project}/{species}/{species}_trimmed_fwd_paired.fastq.gz",
+        rev_p="results/{project}/{species}/{species}_trimmed_rev_paired.fastq.gz"
+    output:
+        sam="results/{project}/{species}/{species}.sam"
+    params:
+        out_dir="results/{project}/{species}",
+        prefix="indexed_genome_{species}"
+    threads: workflow.cores * 0.4
+    conda:
+        "envs/env_gmap.yaml"
+    log:
+        "results/{project}/{species}/logs/gsnap_{species}.log"
+    shell:
+        "(gsnap --gunzip --dir {params.out_dir} --db {params.prefix} "
+        "{input.fwd_p} {input.rev_p} --nthreads {threads} --format sam --novelsplicing=1 "
+        "--nofails --output-file {output.sam} --npaths=20) &> {log}"
+
+#converts sam file into coordinate-sorted bam file
+rule samtools:
+    input:
+        sam="results/{project}/{species}/{species}.sam"
+    output:
+        coordsortbam="results/{project}/{species}/{species}.coordSorted.bam",
+        bam="results/{project}/{species}/{species}.bam"
+    threads: workflow.cores * 0.1
+    conda:
+        "envs/env_samtools.yaml"
+    log:
+        "results/{project}/{species}/logs/samtools_{species}.log"
+    shell:
+        "(samtools view -bo {output.bam} {input.sam} -@ {threads} && "
+        "echo Converted sam file to bam && "
+        "samtools sort -o {output.coordsortbam} {output.bam} -@ {threads} && "
+        "echo Converted read alignments to a coordinate-sorted bam file) &> {log}"
+
+#assembles transcriptome with coordinate-sorted bam file
+rule genome_guided_trinity:
+    input:
+        coordsortbam="results/{project}/{species}/{species}.coordSorted.bam"
+    output:
+        trinity="results/{project}/{species}/trinity_out_dir_{species}/Trinity-GG.fasta",
+        flag_trinity=touch("results/{project}/{species}/Trinity_{species}.DONE")
+    params:
+        out_dir="results/{project}/{species}/trinity_out_dir_{species}/"
+    threads: workflow.cores * 0.4
+    conda:
+        "envs/env_trinity.yaml"
+    log:
+        "results/{project}/{species}/logs/genome_guided_trinity_{species}.log"
+    shell:
+        "(Trinity --genome_guided_bam {input.coordsortbam} --genome_guided_max_intron 10000 "
+        "--max_memory 50G --CPU {threads} --output {params.out_dir}) &> {log}"
+
+#busco lineages are downloaded separetly prior do busco run
+#to save computation resources, as this is a local rule,
+#i.e. it needs internet access and is run on host node
+#storage of lineage information is independent of {project} 
+#as the {lineage} can be used in different runs of workflow
+#with different {project}
+rule download_busco:
+    output:
+        lineage_subdir=directory("resources/busco_downloads/lineages/{lineage}/")
+    params:    
+        busco_down_dir="resources/busco_downloads"
+    log:
+        "resources/logs/download_busco_{lineage}.log"
+    conda:
+        "envs/env_busco.yaml"
+    shell:
+        #exporting path needed because this is not done
+        #properly by conda for busco
+        #don't know why
+        "(export PATH=$CONDA_PREFIX/bin:$PATH && "
+        "mkdir -p {params.busco_down_dir} && "
+        "busco --download_path {params.busco_down_dir} --download {wildcards.lineage} && "
+        "echo {wildcards.lineage} DONE) &> {log}"
+
+#flag flag_trinity ensures busco will only be run once rule genome_guided_trinity 
+#finished for {species} in genome_guided_sp_ls 
+#if not included as input, function transcriptome_fasta will try to return a file 
+#that does not yet exist, leading to missinginput exception
+#creates busco report for all transcriptomes, either provided by user or assembled by trinity
+checkpoint busco:
+    input:
+        transcriptome=transcriptome_fasta, 
+        lineage_subdir=expand("resources/busco_downloads/lineages/{lineage}/", lineage = busco_lineages_ls),
+        flag_trinity=lambda wildcards: expand("results/{project}/{species}/Trinity_{species}.DONE", project=config["project_name"], species=genome_guided_sp_ls) if wildcards.species in genome_guided_sp_ls else [] 
+    output:
+        busco_summary="results/{project}/{species}/busco/short_summary.specific.busco.{species}.txt"
+    params:
+        mode="transcriptome",
+        busco_out_dir="results/{project}/{species}/busco",
+        lineages_dir="resources/busco_downloads/lineages",
+        #returns busco lineage based on wildcards.species
+        lineage=busco_info
+    threads: workflow.cores * 0.2
+    log:
+        "results/{project}/{species}/logs/busco_{species}.log"
+    conda:
+        "envs/env_busco.yaml"
+    shell:
+        #exporting path needed because this is not done
+        #properly by conda for busco
+        #don't know why
+        "(export PATH=$CONDA_PREFIX/bin:$PATH && "
+        "busco -m {params.mode} -i {input.transcriptome} -o {params.busco_out_dir} "
+        "-l {params.lineages_dir}/{params.lineage} -c {threads} -f --offline && "
+        "mv {params.busco_out_dir}/short_summary.specific.{params.lineage}.busco.json {params.busco_out_dir}/short_summary.specific.busco.{wildcards.species}.json && "
+        "mv {params.busco_out_dir}/short_summary.specific.{params.lineage}.busco.txt {output}) &> {log}"
+
+#creates a flag file once busco results for {species} are ready from checkpoint busco
+rule cp_busco_flag:
+    input:
+        lambda wildcards: checkpoints.busco.get(**wildcards).output.busco_summary
+    output:
+        touch("results/{project}/all_species_busco/flag/short_summary.{species}.DONE")
+    params:
+        flag_dir="results/{project}/all_species_busco/flag/",
+        all_species_dir="results/{project}/all_species_busco/"
+    shell:
+        "mkdir -p {params.flag_dir} && "
+        "cp {input} {params.all_species_dir}"
+
+#creates a flag file once all flag files from rule cp_busco_flag are ready
+rule all_busco_flag:
+    input:
+        lambda wildcards: expand("results/{project}/all_species_busco/flag/short_summary.{species}.DONE", project=config["project_name"], species=transcriptome_sp_ls)
+    output:
+        "results/{project}/all_species_busco/flag/all_tables.DONE"
+    shell:
+        "ls {input} > {output}"
+
+#busco report chart with ALL species
+#busco_*.log file generated in working directory when executing generate_plot.py
+#change this
+rule busco_report_all:
+    input:
+        "results/{project}/all_species_busco/flag/all_tables.DONE"
+    params:
+        all_species_dir="results/{project}/all_species_busco"
+    output: 
+        report("results/{project}/all_species_busco/busco_figure_all_species.png", 
+        category="BUSCO",
+        subcategory="All species")
+    log:
+        "results/{project}/logs/busco_report_all_species.log"
+    conda:
+        "envs/env_busco.yaml"
+    shell:
+        #exporting path needed because this is not done
+        #properly by conda for busco
+        #don't know why
+        "(export PATH=$CONDA_PREFIX/bin:$PATH && "
+        "generate_plot.py -wd {params.all_species_dir} && mv {params.all_species_dir}/busco_figure.png {output} && "
+        "echo \"{output} DONE\") &> {log}"
+
+#busco report chart for inidividual {species}
+#busco_*.log file generated in working directory when executing generate_plot.py
+#change this
+rule busco_report_single:
+    input:
+        "results/{project}/all_species_busco/flag/short_summary.{species}.DONE"
+    output:
+        report("results/{project}/{species}/busco_figure_{species}.png", 
+        category="BUSCO",
+        subcategory="Individual species")
+    params:
+        busco_out_dir="results/{project}/{species}/busco"
+    log:
+        "results/{project}/{species}/logs/busco_report_{species}.log"
+    conda:
+        "envs/env_busco.yaml"
+    shell:
+        #exporting path needed because this is not done
+        #properly by conda for busco
+        #don't know why
+        "(export PATH=$CONDA_PREFIX/bin:$PATH && "
+        "generate_plot.py -wd {params.busco_out_dir} && "
+        "cp {params.busco_out_dir}/busco_figure.png {output} && "
+        "echo \"{output} DONE\") &> {log}"    
+
+
+##Augustus rules follow Hoff & Stanke (2018)
+
+###########################################################################
+###                                                                     ###
+###                                                                     ###
+### training AUGUSTUS with PASApipeline to generate training genes      ###
+###                                                                     ###
+###                                                                     ###
+###########################################################################
+
+######develop rule to repeat masking genome?
+######protocol requires seqclean, but not described by PASA developers
+######skipped this step, but might have to modify later
+
+##rules pasa and bonafide_gtf correspond to alternate protocol 2
+
+##flag_trinity makes sure this rule is only run for the species in genome_guided_sp_ls 
+##once the transcriptome has been assembled by trinity (rule genome_guided_trinity)
+
+rule pasa:
+    input:
+        genome=genome_fasta,
+        transcriptome=transcriptome_fasta,
+        flag_trinity=lambda wildcards: expand("results/{project}/{species}/Trinity_{species}.DONE", project=config["project_name"], species=genome_guided_sp_ls) if wildcards.species in genome_guided_sp_ls else []
+    output:
+        transdecoder_cds="results/{project}/{species}/pasa_{species}/main_results/{species}.transdecoder.cds",        
+        transdecoder_pep="results/{project}/{species}/pasa_{species}/main_results/{species}.transdecoder.pep",
+        transdecoder_gff3="results/{project}/{species}/pasa_{species}/main_results/{species}.transdecoder.genome.gff3",
+        path_species_config="results/{project}/{species}/pasa_{species}/pasa_alignAssembly_{species}.config"
+    params:
+        template_config="$PASAHOME/pasa_conf/pasa.alignAssembly.Template.txt", 
+        species_config="pasa_alignAssembly_{species}.config",
+        path_db="\.\/{species}_db_pasa.sqlite",
+        outdir="results/{project}/{species}/pasa_{species}",
+        transcripts_fasta="*assemblies.fasta",
+        transcripts_gff3="*assemblies.gff3",
+        orig_transdecoder_cds="*.transdecoder.cds",
+        orig_transdecoder_gff3="*.transdecoder.genome.gff3",
+        orig_transdecoder_pep="*.assemblies.fasta.transdecoder.pep",
+        new_transdecoder_cds="{species}.transdecoder.cds",
+        new_transdecoder_gff3="{species}.transdecoder.genome.gff3",
+        new_transdecoder_pep="{species}.transdecoder.pep"
+    conda:
+        "envs/env_pasa.yaml"
+    log:
+        "results/{project}/{species}/logs/pasa_{species}.log"
+    threads: workflow.cores * 0.4
+    shell:
+        "mkdir -p {params.outdir}; "
+        "sed \"s/<__DATABASE__>/{params.path_db}/\" {params.template_config} | "
+        "sed \"s/<__MIN_PERCENT_ALIGNED__>/0.8/\" | "
+        "sed \"s/<__MIN_AVG_PER_ID__>/0.9/\" > {output.path_species_config}; "
+        #gmap creates output files within resources/{project}
+        #copying input files to working directory
+        "cp {input.genome} {params.outdir}/{wildcards.species}.genome.fas.cp; "
+        "cp {input.transcriptome} {params.outdir}/{wildcards.species}.transcriptome.fas.cp; "
+        "(cd {params.outdir} && "
+        "pwd && "
+        "$PASAHOME/Launch_PASA_pipeline.pl -c {params.species_config} "
+        "-C -R -g {wildcards.species}.genome.fas.cp --ALIGNERS gmap,blat "
+        "-t {wildcards.species}.transcriptome.fas.cp --CPU {threads} --transcribed_is_aligned_orient && "
+        "pwd && "
+        "$PASAHOME/scripts/pasa_asmbls_to_training_set.dbi --pasa_transcripts_fasta "
+        "{params.transcripts_fasta} --pasa_transcripts_gff3 {params.transcripts_gff3} && "
+        "echo \"Finished PASApipeline; now copying main results to {params.outdir}/main_results \" "
+        "mkdir -p main_results/ && "
+        "cp {params.orig_transdecoder_cds} main_results/{params.new_transdecoder_cds} && "
+        "cp {params.orig_transdecoder_gff3} main_results/{params.new_transdecoder_gff3} && "
+        "cp {params.orig_transdecoder_pep} main_results/{params.new_transdecoder_pep} || "
+        "echo -e \"ERROR in PASApipeline; {wildcards.species} probably doesn't have enough information to run TransDecoder; \\n "
+        "One quick way to check the quality of the transcriptome is to see how many complete, single-copy orthologs were found for {wildcards.species}: "
+        "results/{wildcards.project}/{wildcards.species}/busco_figure_{wildcards.species}.png; \\n "
+        "If there are MANY missing orthologs, it could be that the transcriptome assembly is not good and/or "
+        "the genome from a species too distant to the target species was used for mapping; \\n "
+        "TRAINING {wildcards.species} IS NOT POSSIBLE AT THE MOMENT\") &> {log}"
+        #--no_refine_starts should fix TransDecoder issues for small datasets
+        #can't incorporate this into PASApipeline though
+
+#generates training gene set in gtf format
+rule bonafide_gtf:
+    input:
+        cds="results/{project}/{species}/pasa_{species}/main_results/{species}.transdecoder.cds",
+        gff3="results/{project}/{species}/pasa_{species}/main_results/{species}.transdecoder.genome.gff3"
+    output:
+        bonafide_gtf="results/{project}/{species}/augustus_training_{species}/{species}_bonafide.gtf",
+        complete_orfs="results/{project}/{species}/augustus_training_{species}/{species}_complete_orfs.headers",
+        training_set_complete_gff3="results/{project}/{species}/augustus_training_{species}/{species}_trainingSetComplete.gff3"
+    log:
+        "results/{project}/{species}/logs/bonafide_gtf_{species}.log"
+    shell:
+        "(grep \"complete\" {input.cds} | perl -pe 's/>(\S+).*/$1/' > {output.complete_orfs} && "
+        "echo \"Created a list of complete ORFs: {output.complete_orfs}\" && "
+        "grep -F -f {output.complete_orfs} {input.gff3} | "
+        "grep -P \"(\tCDS\t|\texon\t)\" | perl -pe 's/cds\.//; s/\.exon\d+//;' > {output.training_set_complete_gff3} && "
+        "echo \"Used the list with complete ORFs to search for them in the pasa filtered transcriptome mapping file, "
+        "keeping only the exon and CDS entries; renamed exon entries to have the same identifier as CDS entries, "
+        "generating training gene candidates: {output.training_set_complete_gff3}\" && "
+        "cat {output.training_set_complete_gff3} | perl -pe 's/\t\S*(asmbl_ \d+).*/\t$1/' | "
+        "sort -n -k 4 | sort -s -k 9 | sort -s -k 1,1 > {output.bonafide_gtf} && "
+        "echo \"Sorted the training gene candidates: {output.bonafide_gtf}\") &> {log}"
+
+##rules computeflankingregion and gff2gbsmalldna correspond to steps 3 and 4 of Alternate Protocol 1
+
+#computes a flanking region length for training gene structures
+rule computeflankingregion:
+    input:
+        bonafide_gtf="results/{project}/{species}/augustus_training_{species}/{species}_bonafide.gtf"
+    output:
+        flanking_length="results/{project}/{species}/augustus_training_{species}/{species}_flanking_region.txt"
+    conda:
+        "envs/env_augustus.yaml"
+    log:
+        "results/{project}/{species}/logs/computeflankingregion_{species}.log"
+    shell:
+        "(computeFlankingRegion.pl {input.bonafide_gtf} && "
+        "grep \"flanking_DNA\" {log} | xargs echo > {output.flanking_length} && "
+        "echo \"Flanking region length for training gene structures listed in the GTF file: {output.flanking_length}\") &> {log}"
+
+#generates training gene set in gbff format
+rule gff2gbsmalldna:
+    input:
+        bonafide_gtf="results/{project}/{species}/augustus_training_{species}/{species}_bonafide.gtf",
+        genome=genome_fasta,
+        flanking_length="results/{project}/{species}/augustus_training_{species}/{species}_flanking_region.txt"
+    output:
+        bonafide_gbff="results/{project}/{species}/augustus_training_{species}/{species}_bonafide.gbff"
+    conda:
+        "envs/env_augustus.yaml"
+    log:
+        "results/{project}/{species}/logs/gff2gbsmalldna_{species}.log"
+    shell:
+        "(length=$(cut -d \" \" -f5 {input.flanking_length}) && "
+        "gff2gbSmallDNA.pl {input.bonafide_gtf} {input.genome} \"$length\" {output.bonafide_gbff} && "
+        "echo \"Converted genome file and gtf file into GenBank flatfile format using the flanking "
+        "length \"$length\": {output.bonafide_gbff}\") &> {log}"
+
+##rules aa2nonred and filterGenesIn correspond to Support Protocol 2, starting on step 2
+##generates information on redundant gene structures to be removed from {species}_bonafide.gbff
+
+#all training gene amino acid sequences are BLASTed against themselves
+#outputs only those protein sequences that are less than 80% redundant 
+#with any other sequence in the set
+rule aa2nonred:
+    input:
+        pep="results/{project}/{species}/pasa_{species}/main_results/{species}.transdecoder.pep"
+    output:
+        nonred_pep="results/{project}/{species}/augustus_training_{species}/{species}.nonredudant.pep",
+        nonred_pep_headers="results/{project}/{species}/augustus_training_{species}/{species}.nonredudant.pep.headers",
+        mod_headers_pep="results/{project}/{species}/augustus_training_{species}/{species}.mod_headers.transdecoder.pep"
+    conda:
+         "envs/env_augustus.yaml"
+    log:
+         "results/{project}/{species}/logs/aa2nonred_{species}.log"
+    threads: workflow.cores * 0.4
+    shell:
+        "(echo \"Peptide sequences for the final candidate ORFs generated by TransDecoder within the PASApipeline: {input.pep}\" && "
+        "cat {input.pep} | grep -Pzo \">.*complete.*\\n[^\\n]*\\n(?:[^>].*\\n)*\" | sed -E 's/^>([^[:space:]]+).*/>\\1/' | "
+        "sed '/^$/d' > {output.mod_headers_pep}; "
+        "echo \"Filtered the peptide file to keep sequences corresponding to complete ORFs, "
+        "while also simplifying the sequence headers: {output.mod_headers_pep}\" && "
+        "aa2nonred.pl {output.mod_headers_pep} {output.nonred_pep} --cores {threads} && "
+        "grep \">\" {output.nonred_pep} | sed \"s/^>//g\" > {output.nonred_pep_headers} && "
+        "echo \"Generated a fasta file containing protein sequences that are less than 80% redundant "
+        "with any other sequence in the set: {output.nonred_pep}\" && "
+        "echo \"Stored information on the headers from the non-redudant sequences: {output.nonred_pep_headers}\") &> {log}"
+
+#removed redundant aa seqs from bonafide_gff
+rule filtergenesin:
+    input: 
+        bonafide_gbff="results/{project}/{species}/augustus_training_{species}/{species}_bonafide.gbff",
+        nonred_pep_headers="results/{project}/{species}/augustus_training_{species}/{species}.nonredudant.pep.headers"
+    output:
+        filtered_bonafide_gbff="results/{project}/{species}/augustus_training_{species}/main_results/{species}_filtered_bonafide.gbff",
+        gene_loci_tsv="results/{project}/{species}/augustus_training_{species}/{species}_gene_loci.tsv",
+        nonred_loci_lst="results/{project}/{species}/augustus_training_{species}/{species}_nonredudant_loci.lst"
+    conda:
+        "envs/env_augustus.yaml"
+    log:
+        "results/{project}/{species}/logs/filtergenesin_{species}.log"
+    shell:
+        "(cat {input.bonafide_gbff} | perl -ne 'if($_ =~ m/LOCUS\s+(\S+)\s/) {{$txLocus = $1;}} "
+        "elsif($_ =~ m/\/gene=\\\"(\S+)\\\"/) {{$txInGb3{{$1}} = $txLocus}} if(eof()){{foreach(keys %txInGb3) "
+        "{{print \"$_\\t$txInGb3{{$_}}\\n\";}}}}' > {output.gene_loci_tsv} && "
+        "echo \"Generated a tab-separated file with information on gene names and their corresponding loci names: {output.gene_loci_tsv}\" && "
+        "grep -f {input.nonred_pep_headers} {output.gene_loci_tsv} | cut -f2 > {output.nonred_loci_lst} && "
+        "echo \"List of loci without redudant sequences on the amino acid level: {output.nonred_loci_lst}\" && "
+        "filterGenesIn.pl {output.nonred_loci_lst} {input.bonafide_gbff} > {output.filtered_bonafide_gbff} && "
+        "loci_orig=$(grep -c \"LOCUS\" {input.bonafide_gbff}) && "
+        "loci_filt=$(grep -c \"LOCUS\" {output.filtered_bonafide_gbff}) && "
+        "rmvd_loci=$(($loci_orig - $loci_filt)) && "
+        "echo \"Removed \"$rmvd_loci\" genes from the original gbff file due to sequence redundancy on the amino acid level "
+        "and generated a filtered gbff file: {output.filtered_bonafide_gbff}\" && "
+        "echo \"Now ready to start training Augustus using \"$loci_filt\" genes from the species {wildcards.species}\") &> {log}"
+
+##Alternate protocol 4
+
+#trains augustus for a new {species}
+rule augustus_training:
+    input:
+        filtered_bonafide_gbff="results/{project}/{species}/augustus_training_{species}/main_results/{species}_filtered_bonafide.gbff"
+    output:
+        noerror_genes_gbff="results/{project}/{species}/augustus_training_{species}/main_results/{species}_noerror_genes_refiltered_bonafide.gbff",
+        noerror_genes_gbff_train="results/{project}/{species}/augustus_training_{species}/main_results/{species}_noerror_genes_refiltered_bonafide.gbff.train",
+        noerror_genes_gbff_test="results/{project}/{species}/augustus_training_{species}/main_results/{species}_noerror_genes_refiltered_bonafide.gbff.test",
+        training_out="results/{project}/{species}/augustus_training_{species}/main_results/{species}_augustus_training.out",
+        error_genes_lst="results/{project}/{species}/augustus_training_{species}/main_results/{species}_error_genes.lst"
+    params:
+        augustus_config="$AUGUSTUS_CONFIG_PATH/species/{species}/{species}_parameters.cfg",
+        augustus_config_dir="$AUGUSTUS_CONFIG_PATH/species/{species}/"
+    conda:
+        "envs/env_augustus.yaml"
+    log:
+        "results/{project}/{species}/logs/augustus_training_{species}.log"
+    shell:
+        "(if ! [ -f {params.augustus_config} ]; then "
+        "new_species.pl --species={wildcards.species}; "
+        "echo \"Created subdirectory for the new species {wildcards.species} with template parameter files: {params.augustus_config_dir}\"; "
+        "fi && " 
+        "etraining --species={wildcards.species} {input.filtered_bonafide_gbff} &&"
+        "err_count=$(grep -c \"Variable stopCodonExcludedFromCDS set right\" {log}) && "
+        "loci_filt=$(grep -c \"LOCUS\" {input.filtered_bonafide_gbff}) && "
+        "cutoff=$(echo \"\"$loci_filt\"*0.50\" | bc -l | xargs printf \"%.0f\") && "
+        "if [ \"$err_count\" -gt \"$cutoff\" ]; then "
+        "echo \"More than half of the genes ($err_count) returned an error during etraining\"; "
+        "echo \"Modifying value stopCodonExcludedFromCDS to true from {params.augustus_config}\"; "
+        "sed -i \"s/stopCodonExcludedFromCDS false/stopCodonExcludedFromCDS true/\" {params.augustus_config}; "
+        "else "
+        "echo \"More than half of the genes are adequate to train augustus, with a total of $err_count displaying an error\"; "
+        "echo \"Keeping value stopCodonExcludedFromCDS as false in {params.augustus_config}\"; "
+        "fi && "
+        "echo \"Running etraining again\" && "
+        "etraining --species={wildcards.species} {input.filtered_bonafide_gbff} 2>&1 | grep \"in sequence\" | "
+        "perl -pe 's/.*n sequence (\S+):.*/$1/' | sort -u > {output.error_genes_lst} && "
+        "echo \"List with genes displaying errors, which will be removed from gbff file: {output.error_genes_lst}\" && "
+        "filterGenes.pl {output.error_genes_lst} {input.filtered_bonafide_gbff} > {output.noerror_genes_gbff} && "
+        #if {output.error_genes_lst} empty, i.e. no genes with errors, {input.filtered_bonafide_gbff} is copied and written to {output.noerror_genes_gbff}
+        #file {output.noerror_genes_gbff} always exists
+        #consider increasing value 200 in the future?
+        "randomSplit.pl {output.noerror_genes_gbff} 200 && "
+        "echo \"Randomly split input file {output.noerror_genes_gbff} into a test set with 200 genes and "
+        "wrote the remaining to a training file, {output.noerror_genes_gbff_test} and {output.noerror_genes_gbff_train}, respectively\" || "
+        "echo -e \"There are fewer than 200 gene structures in {input.filtered_bonafide_gbff};\\n "
+        "TRAINING {wildcards.species} IS NOT POSSIBLE AT THE MOMENT\" && "
+        "echo \"Running etraining again\" && " 
+        "etraining --species={wildcards.species} {output.noerror_genes_gbff_train} && "
+        "tag_new_prob=$(tail -6 {log} | grep \"tag\" | cut -d \"(\" -f2 | sed \"s/)//\") && "
+        "taa_new_prob=$(tail -6 {log} | grep \"taa\" | cut -d \"(\" -f2 | sed \"s/)//\") && "
+        "tga_new_prob=$(tail -6 {log} | grep \"tga\" | cut -d \"(\" -f2 | sed \"s/)//\") && "
+        "sed -i -E \"s/(amberprob\\s*)(0\.[0-9]*\\b)(\\s*)/\\1$tag_new_prob\\3/\" {params.augustus_config} && "
+        "sed -i -E \"s/(ochreprob\\s*)(0\.[0-9]*\\b)(\\s*)/\\1$taa_new_prob\\3/\" {params.augustus_config} && "
+        "sed -i -E \"s/(opalprob\\s*)(0\.[0-9]*\\b)(\\s*)/\\1$tga_new_prob\\3/\" {params.augustus_config} && "
+        "echo \"Adjusted stop codon frequencies following the last excution of etraining\" && "
+        "echo \"Now running Augustus with the newly trained parameters for {wildcards.species}\" && "
+        "augustus --species={wildcards.species} {output.noerror_genes_gbff_test} > {output.training_out} && "
+        "echo \"Results on Augustus training for {wildcards.species}: {output.training_out}\") &> {log}"
+        #note: for now, skipped optimize_augustus.pl from support protocol 3
+
+###########################################################################
+###                                                                     ###
+###                                                                     ###
+### AUGUSTUS ab inition, with previously trained species                ###
+### no transcriptome required                                           ###
+###                                                                     ###
+###########################################################################
+
+
+#Basic protocol 2
+
+#if the species under the column Augustus_ab_initio_species (value_ab_initio) is the same
+#as another species with which augustus was trained (key_train)
+#add these as key:value to dictionary trained_ab_initio_sp_dict
+trained_ab_initio_sp_dict = dict()
+for key_ab_initio, value_ab_initio in samples_dict["Augustus_ab_initio_species"].items():
+    for key_train, value_train in samples_dict["Augustus_training"].items():
+        if value_ab_initio == key_train:
+            trained_ab_initio_sp_dict[key_ab_initio] = value_ab_initio
+
+#list with species name to run ab initio
+trained_ab_initio_sp_ls=list(trained_ab_initio_sp_dict.keys())
+
+#predicting genes ab initio
+rule augustus_ab_initio:
+    input:
+        genome=genome_fasta,
+        #if the species under the column Augustus_ab_initio_species is the same
+        #as another species with which augustus was trained
+        #then ALL the training_out generated with rule augustus_training have to be present
+        #this ensures paremeters training are present and can be used for augustus_ab_initio
+        training_out=lambda wildcards: expand("results/{project}/{species}/augustus_training_{species}/main_results/{species}_augustus_training.out", 
+            project=config["project_name"], species=trained_ab_initio_sp_dict[wildcards.species]) if wildcards.species in trained_ab_initio_sp_ls else []
+    output:
+        predicted_genes_gff3="results/{project}/{species}/augustus_ab_initio_{species}/main_results/{species}_augustus_ab_initio_genes.gff3",
+        error_out="results/{project}/{species}/augustus_ab_initio_{species}/main_results/{species}_augustus_ab_initio.err"
+    params:
+        sp_name=augustus_ab_initio_info
+    conda:
+        "envs/env_augustus.yaml"
+    log:
+        "results/{project}/{species}/logs/augustus_ab_initio_{species}.log"
+    shell:
+        "(augustus --species={params.sp_name} {input.genome} --gff3=on --outfile={output.predicted_genes_gff3} --errfile={output.error_out} && "
+        "echo \"Genes predicted ab initio: {output.predicted_genes_gff3}\" && "
+        "echo \"Error messages: {output.error_out}\") &> {log}"
+
+#inclulde rule for alternate protocol 5 to sample alternative gene structures?
+#or incorporate it to rule augustus_ab_initio?
+
+
+###########################################################################
+###                                                                     ###
+###                                                                     ###
+###                       AUGUSTUS wit hints                            ###
+###                                                                     ###
+###                                                                     ###
+###########################################################################
+
+#Augustus_hints_species
+#e.g. Species_name: Octopus
+# Augustus_hints_species: Octopus
+#training is done before hints is done
+#in that case, augustus_training has to be marked "Yes"
+#or Augustus_hints_species: existing_augustus_sp
+#augustus_training can be yes or no
+
+#Alternate protocol 8
+
+##flag_trinity makes sure this rule is only run for the species in genome_guided_sp_ls 
+##once the transcriptome has been assembled by trinity (rule genome_guided_trinity)
+#generates a file with filtered and sorted blat alignments
+rule blat_pslCDnaFilter:
+    input:
+        genome=genome_fasta,
+        transcriptome=transcriptome_fasta,
+        flag_trinity=lambda wildcards: expand("results/{project}/{species}/Trinity_{species}.DONE", project=config["project_name"], species=genome_guided_sp_ls) if wildcards.species in genome_guided_sp_ls else [] #file only required as input if genome_guided_sp_ls not empty
+    output:
+        psl="results/{project}/{species}/augustus_hints_{species}/{species}_blat_aligned.psl",
+        filt_psl="results/{project}/{species}/augustus_hints_{species}/{species}_filtered_blat_aligned.psl",
+        sort_filt_psl="results/{project}/{species}/augustus_hints_{species}/{species}_sort_filtered_blat_aligned.psl"
+    conda:
+        "envs/env_blat.yaml"
+    log:
+        "results/{project}/{species}/logs/blat_pslCDnaFilter_{species}.log"
+    shell:
+        "(blat -noHead -minIdentity=92 {input.genome} {input.transcriptome} {output.psl} && "
+        "echo \"cDNA aligned against genome with BLAT: {output.psl}\" && "
+        "pslCDnaFilter -minId=0.9 -localNearBest=0.005 -ignoreNs -bestOverlap {output.psl} {output.filt_psl} && "
+        "echo \"Alignments filtered to obtain those that are potentially most useful for gene prediction: {output.filt_psl}\" && "
+        "cat {output.filt_psl} | sort -n -k 16,16 | sort -s -k 14,14 > {output.sort_filt_psl} && "
+        "echo \"Sorted filtered alignments according to start position and target sequence name: {output.sort_filt_psl}\") &> {log}"
+
+rule blat2hints:
+    input:
+        sort_filt_psl="results/{project}/{species}/augustus_hints_{species}/{species}_sort_filtered_blat_aligned.psl"
+    output:
+        hints="results/{project}/{species}/augustus_hints_{species}/main_results/{species}.hints"
+    conda:
+        "envs/env_augustus.yaml"
+    log:
+        "results/{project}/{species}/logs/blat2hints_{species}.log"
+    shell:
+        "(blat2hints.pl --in={input.sort_filt_psl} --out={output.hints} --minintronlen=35 --trunkSS && "
+        "echo \"Convert sort-filtered blat alignments in psl format to hints: {output.hints}\" ) &> {log}"
+
+#Basic protocol 4
+
+#if the species under the column Augustus_hints_species (value_hints) is the same
+#as another species with which augustus was trained (key_train)
+#add these as key:value to dictionary trained_hints_sp_dict
+trained_hints_sp_dict = dict()
+for key_hints, value_hints in samples_dict["Augustus_hints_species"].items():
+    for key_train, value_train in samples_dict["Augustus_training"].items():
+        if value_hints == key_train:
+            #key_hints = string under Species_name column
+            #value_hints = string under Augustus_hints_species column
+            trained_hints_sp_dict[key_hints] = value_hints
+
+#list with species name to run hints
+trained_hints_sp_ls=list(trained_hints_sp_dict.keys())
+
+#generates gene predictions based on extrinsic hints
+rule augustus_hints:
+    input:
+        genome=genome_fasta,
+        hints="results/{project}/{species}/augustus_hints_{species}/main_results/{species}.hints",
+        #if the species under the column Augustus_hints_species is the same
+        #as another species with which augustus was trained
+        #then ALL the training_out generated with rule augustus_training have to be present
+        #this ensures paremeters training are present and can be used for augustus_hints
+        training_out=lambda wildcards: expand("results/{project}/{species}/augustus_training_{species}/main_results/{species}_augustus_training.out", 
+           project=config["project_name"], species=trained_hints_sp_dict[wildcards.species]) if wildcards.species in trained_hints_sp_ls else []
+    output:
+        predicted_with_hints="results/{project}/{species}/augustus_hints_{species}/main_results/{species}_augustus_predicted_with_hints.gff",
+        augustus_new_config="results/{project}/{species}/augustus_hints_{species}/extrinsic.E.{project}.{species}.cfg"
+    params:
+        augustus_orig_config="$AUGUSTUS_CONFIG_PATH/extrinsic/extrinsic.E.cfg",     
+        sp_name=augustus_hints_info   
+    conda:
+        "envs/env_augustus.yaml"
+    log:
+        "results/{project}/{species}/logs/augustus_hints_{species}.log"
+    shell:
+        "(cp {params.augustus_orig_config} {output.augustus_new_config} && "
+        "echo \"Augustus configuration file: {output.augustus_new_config}\" && "
+        "augustus --species={params.sp_name} --extrinsicCfgFile={output.augustus_new_config} "
+        "--hintsfile={input.hints} --allow_hinted_splicesites=atac "
+        "--softmasking=off {input.genome} > {output.predicted_with_hints} && "
+        "echo \"Genes predicted with extrinsic hints: {output.predicted_with_hints}\") &> {log}"
+
+onsuccess:
+    print("Workflow finished, no error!")
+    print("Generating report...")
+    shell("snakemake --report report.zip")
+    print("Done!")
+
+onerror:
+    print("An error occurred!")
+    print("See the log file for more details")

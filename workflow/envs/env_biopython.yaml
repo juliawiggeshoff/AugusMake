@@ -1,0 +1,8 @@
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - biopython=1.80=py39hb9d737c_0
+  - python_abi=3.9=2_cp39
+  - numpy=1.21.5=py39h6c91a56_3

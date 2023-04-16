@@ -1,0 +1,11 @@
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - samtools=1.16.1
+  - htslib=1.16
+  - libgcc-ng=12
+  - libzlib=1.2.12
+  - ncurses=6.3
+  - zlib=1.2.12

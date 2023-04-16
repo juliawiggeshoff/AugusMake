@@ -1,0 +1,10 @@
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - pasa=2.5.2
+  - perl-cgi
+  - perl-db-file
+  - perl-dbd-sqlite
+  - perl-uri
