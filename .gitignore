@@ -1,8 +1,7 @@
+#ignore files
+
 .snakemake/*
-resources/*.zip
-resources/*.tar.gz
-resources/*.fna
-resources/*.fasta
+resources/*
 results/*
 nohup*.out
 pipeliner.*.cmds
@@ -10,3 +9,12 @@ snakejob_logs/*
 busco_*.log
 core.*
 report.zip
+
+#keep folder
+!results/.gitkeep 
+!resources/.gitkeep 
+
+#keep adapter file
+!resources/Dario_custom_adapters.fa
+#keep subdir example
+!resources/developing_workflow/*
