@@ -1,0 +1,12 @@
+.snakemake/*
+resources/*.zip
+resources/*.tar.gz
+resources/*.fna
+resources/*.fasta
+results/*
+nohup*.out
+pipeliner.*.cmds
+snakejob_logs/*
+busco_*.log
+core.*
+report.zip

@@ -1,0 +1,11 @@
+name: genome_annotation
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - snakemake-minimal=7.19.1
+  - tabulate=0.8.10
+  - pandas=1.5.2
+  - mamba=1.0.0
+  - pygments=2.14.0
