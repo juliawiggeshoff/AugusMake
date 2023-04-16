@@ -12,12 +12,12 @@ The user has four alternatives when providing information on the input data in r
 3. Provide a genome gile and a [SRA accession ID](https://www.ncbi.nlm.nih.gov/sra) corresponding to paired-end RNA-Seq files
 4. Provide just a genome file
 
-For all options except the fourth, the user has to provide information on the BUSCO_lineage and an Adapter file used by Trimmomatic. Further details on the required information described under [Species information table](https://gitlab.leibniz-lib.de/jwiggeshoff/genome-annotation/-/tree/augustus#species-information-table).
+For all options except the fourth, the user has to provide information on the BUSCO_lineage and an Adapter file used by Trimmomatic. Further details on the required information described under [Species information table](https://github.com/juliawiggeshoff/AugusMake#species-information-table).
 
 [BUSCO_lineage](https://busco-data.ezlab.org/v5/data/lineages/) is used to quality check the transcriptome assemble put together by Trinity while guided by the genome file or by the transcriptome already provided by the user.
 For the adapter file, the user can provide a custom adapter file (path included) or the name from one of the Fasta files supplied by Trimmomatic. The most common one is TruSeq3-PE.fa, as it is used for by HiSeq and MiSeq machines. See page 12 from the [Trimmomatic manual](http://www.usadellab.org/cms/uploads/supplementary/Trimmomatic/TrimmomaticManual_V0.32.pdf).
 
-Information on the alternatives for Augustus processing are listed under [Species information table](https://gitlab.leibniz-lib.de/jwiggeshoff/genome-annotation/-/tree/augustus#species-information-table).
+Information on the alternatives for Augustus processing are listed under [Species information table](https://github.com/juliawiggeshoff/AugusMake#species-information-table).
 
 ## Species information table
 
@@ -43,7 +43,7 @@ NEVER modify the names of the columns and leave no cell empty, write `None` when
 
 ### Required parameters on a case-by-case basis 
 
-(see [Input data requirements](https://gitlab.leibniz-lib.de/jwiggeshoff/genome-annotation/-/tree/augustus#input-data-requirements) above)
+(see [Input data requirements](https://github.com/juliawiggeshoff/AugusMake#input-data-requirements) above)
 
 1. Provide both genome and transcriptome files
 - Provide information on Species_name, Genome, Transcriptome, and BUSCO_lineage. Mark `None` for Forward, Reverse, SRA, and Adapter.
