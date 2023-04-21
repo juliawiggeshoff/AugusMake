@@ -1,8 +1,8 @@
 # AugusMake - Augustus-based gene prediction with Snakemake
 
-Revised description from 16/04/2023
+Guided by a genome file, a transcriptome is *de novo* assembled with Trinity. It does so using RNA-Seq data provided by the user or automatically downloads paired-end (PE) reads following an accession number from NCBI'S SRA database. Trimming of PE reads is done with Trimmomatic and their quality is assed pre- and post-trimming with FastQC. Alternatively, the user can also provide an already-assembled transcriptome. The completeness of the transcriptome is checked using BUSCO. Gene predictions can be done *ab initio* using just a genome file, i.e. no transcriptome is required, and/or with extrinsic hints using transcriptomic data. Both can be done with pre-trained parameters from Augustus or the user can choose to train the program for a new species. The results from training should be used with caution and carefully checked by the user after the analyzes are completed.
 
-The augustus branch was developed to train augustus and/or predict genes with extrinsic hints and/or ab inition. The rules were developed after the protocol from [Hoff & Stanke (2018)](https://www.researchgate.net/publication/329132272_Predicting_Genes_in_Single_Genomes_with_AUGUSTUS), the developers from Augustus.
+The rules for Augustus were developed after the protocol from [Hoff & Stanke (2018)](https://www.researchgate.net/publication/329132272_Predicting_Genes_in_Single_Genomes_with_AUGUSTUS), the developers from Augustus. 
 
 # Input data requirements
 
