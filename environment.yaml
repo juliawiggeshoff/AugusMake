@@ -1,4 +1,4 @@
-name: genome_annotation
+name: AugusMake
 channels:
   - bioconda
   - conda-forge
