@@ -1,4 +1,4 @@
-# AugusMake - Augustus-based Gene prediction with Snakemake
+# AugusMake - Augustus-based gene prediction with Snakemake
 
 Revised description from 16/04/2023
 
@@ -198,7 +198,7 @@ Choose the name of your project, which is how the output subfolder in `results` 
 
 # Cluster execution
 
-Tailored to work with the SGE job scheduler from the HPC cluster from the Museum Koenig in Bonn. Modify as needed.
+Tailored to work with a SGE job scheduler. Modify as needed. See [Snakemake documentation](https://snakemake.readthedocs.io/en/stable/executing/cluster.html) for help.
 
 Example of command for cluster execution:
 
@@ -221,7 +221,7 @@ If you named your configuration file differently, e.g. NEW_NAME, include the opt
 
 ## report.zip
 
-A report.zip file is automatically generated upon the sucessfully finished workflow. ALWAYS include --no-lock when running snakemake, otherwise it is not automatically created and it returns an error. If that happens, the user can just manually generate the report with snakemake --report report.zip afterwards, but the automatic generation is obviously prefered.
+A report.zip file is automatically generated upon the sucessfully finished workflow. ALWAYS include `--no-lock` when running snakemake, otherwise it is not automatically created and it returns an error. If that happens, the user can just manually generate the report with `snakemake --report report.zip` afterwards, but the automatic generation is obviously prefered.
 
 Charts to visually represent the BUSCO results are output in the report.zip. Each species has their own, individual chart. One chart combining all species is also available. This is done to compare the results between the assemblies. Similarly, the FastQC report files are also included for each species pre and post-trimming.
 
