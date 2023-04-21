@@ -97,7 +97,7 @@ or
 
 `conda activate /home/myusername/.conda/envs/localconda/envs/AugusMake`
 
-Before running the workflow locally or in a HPC system, make sure to do a "dry run" (`--dry-run` or `-n`) to see how many jobs will be run and if any errors are being flagged. Use `--printshellcmds` or `-p`` for a full description of the rules or `--quiet` or `-q` to just print a summary of the jobs:
+Before running the workflow locally or in a HPC system, make sure to do a "dry run" (`--dry-run` or `-n`) to see how many jobs will be run and if any errors are being flagged. Use `--printshellcmds` or `-p` for a full description of the rules or `--quiet` or `-q` to just print a summary of the jobs:
 
 `snakemake --use-conda --cores 51 -q -n`
 
@@ -114,23 +114,9 @@ all_fasterq_dump_done        1              1              1
 augustus_ab_initio           1              1              1
 augustus_hints               4              1              1
 augustus_training            2              1              1
-blat2hints                   4              1              1
-blat_pslCDnaFilter           4              1              1
-bonafide_gtf                 2              1              1
-busco                        4             10             10
-busco_report_all             1              1              1
-busco_report_single          4              1              1
-computeflankingregion        2              1              1
-cp_busco_flag                4              1              1
-download_busco               3              1              1
-fasterq_dump                 1              6              6
-filtergenesin                2              1              1
-flag_fasterq_dump            1              1              1
-genome_guided_trinity        2             20             20
-gff2gbsmalldna               2              1              1
-gmap_build                   2              1              1
-gsnap                        2             20             20
-pasa                         2             20             20
+
+			    ...
+			    
 prefetch                     1              1              1
 raw_fastqc                   2              2              2
 samtools                     2              5              5
