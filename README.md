@@ -282,9 +282,9 @@ or
 
 `conda activate /home/myusername/.conda/envs/localconda/envs/AugusMake`
 
-Before running the workflow locally or in a HPC system, make sure to do a "dry run" (--dry-run or -n) to see how many jobs will be run and if any errors are being flagged:
+Before running the workflow locally or in a HPC system, make sure to do a "dry run" (`--dry-run` or `-n`) to see how many jobs will be run and if any errors are being flagged. Use `--printshellcmds` or `-p`` for a full description of the rules or `--quiet` or `-q` to just print a summary of the jobs:
 
-`snakemake --use-conda --cores 51 -p -n`
+`snakemake --use-conda --cores 51 -q -n`
 
 ```
 Building DAG of jobs...
@@ -324,7 +324,7 @@ trimmomatic                  2             15             15
 total                       69              1             20
 ```
 
-You can use the information from the **total*** numbers of jobs to "guide" the value for `--jobs`, while keeping in mind not to "allow" to many jobs at one. So, a value of 25 to 30 jobs might be the safest choice. See [cluster execution](https://github.com/juliawiggeshoff/AugusMake#cluster-execution).
+You can use the information from the **total*** numbers of jobs to "guide" the value for `--jobs`, while keeping in mind not to "allow" too many jobs at one. So, a value of 25 to 30 jobs might be the safest choice. See [cluster execution](https://github.com/juliawiggeshoff/AugusMake#cluster-execution).
 
 ## Local machine execution
 
