@@ -14,17 +14,17 @@ sample_info:
 project_name:
   "developing_workflow"
 ```
-The name of the species table can be modified, just make sure the name of the actual file also matches what is listed in the configuration file. Make sure to still store in the folder `config` to keep things organized.
+The name of the species table (`sample_info`) can be modified, just make sure the name of the actual file also matches what is listed in the configuration file. Make sure to still store in the folder `config` to keep things organized.
 
-Choose the name of your project, which is how the output subfolder in `results` will be named. 
+Choose the name of your project (`project_name)`, which is how the output subfolder in `results` will be named. 
 
-**Note**: It is really important you have a folder in `resources` that is named the same way, which is where you will provided any input files, like genome, transcriptome, forward and reverse files. Inside of `resources/[project_name]` is also where the data downloaded from the SRA database will be stored in the subfolder `resources/[project_name]/SRA/`
+**Note**: It is really important you have a folder in `resources` that is named the same way, which is where you will store any input file, like genome (always mandatory), transcriptome, forward and reverse files. Inside of `resources/[project_name]` is also where the data downloaded from the SRA database will be stored in the subfolder `resources/[project_name]/SRA/`
 
 # Species information table
 
-Modify `species_table_shorter_augustus.tsv` based on your project. If you rename the file, make sure to change the name under `sample_info:` from `config.yaml`.
+Modify `species_table_shorter_augustus.tsv` based on your project. If you rename the file, make sure to change the name under `sample_info:` in the configuration file.
 
-NEVER change the names of the columns and leave no cell empty, write `None` when needed and `Yes|No`.
+NEVER change the names of the columns and leave no cell empty, write `None` when needed and `Yes|No` (more info below).
 
 |Species_name|Genome|Transcriptome|Forward|Reverse|SRA|BUSCO_lineage|Adapter|Augustus_training|Augustus_hints|Augustus_ab_initio|Augustus_ab_initio_species|Augustus_hints_species|
 |--|--|--|--|--|--|--|--|--|--|--|--|--|
@@ -38,23 +38,23 @@ Drosophila_melanogaster_no_transcriptome|Drosophila_melanogaster_GCF_000001215.4
 - Species_name: name of your species and how output files will be labeled. This needs to be unique if you want to process the same genome and/or transcriptome file differently.
   - Example1: Pediculus_humanus_corporis_Genome-Guided X Pediculus_humanus_corporis: same genome file, but for Pediculus_humanus_corporis_Genome-Guided the transcriptome is assembled. Additionally, augustus analyses are different.
   - Example2: Drosophila_melanogaster X Drosophila_melanogaster_no_transcriptome: no transcriptome is assembled or provided for the latter, so just gene predictions ab initio can be done with Augustus.
-- Genome: name of fasta file stored in folder resources/{project} (information on project name described under configuration file below). The suffix is "irrelevant", i.e. it can be .fna, .fas, .fasta.
+- Genome: name of fasta file stored in folder `resources/[project_name]`. The suffix is "irrelevant", i.e. it can be .fna, .fas, .fasta, etc.
 
 ## Mandatory parameters for all but one case (where no transcriptome is assembled or provided)
 
 - BUSCO_lineage: name of BUSCO lineage. More on available lineages [here](https://busco-data.ezlab.org/v5/data/lineages/)
 
-## Required parameters on a case-by-case basis 
+## Required parameters on a case-by-case 
 
 1. Provide both genome and transcriptome files
 - Provide information on Species_name, Genome, Transcriptome, and BUSCO_lineage. Mark `None` for Forward, Reverse, SRA, and Adapter.
 
 2. Provide a genome file and paired-end RNA-Seq files
 - Provide the Species_name and Genome information, and write `None` under Transcriptome
-- Provide names of Forward and Reverse files, which should be located in the directory resources/{project} (information on project name described under configuration file below)
+- Provide names of Forward and Reverse files
 - Write `None` under SRA
 - Provide the BUSCO_lineage for you species. e.g. mollusca_odb10 if you are working with a mollusc. More on available lineages [here](https://busco-data.ezlab.org/v5/data/lineages/)
-- Provide the name of your adapter file for trimming, which is done with Trimmomatic. You can give a path to a costum file, like the example found in `resources/Dario_custom_adapters.fa` or the name of a standard adapter file deployed with Trimmomaticm, like `TruSeq3-PE.fa`. More info [here](http://www.usadellab.org/cms/uploads/supplementary/Trimmomatic/TrimmomaticManual_V0.32.pdf)
+- Provide the name of your adapter file for trimming, which is done with Trimmomatic. You can give a path to a custom file, like the example found in `resources/Dario_custom_adapters.fa` or the name of a standard adapter file deployed with Trimmomatic, like `TruSeq3-PE.fa`. More info [here](http://www.usadellab.org/cms/uploads/supplementary/Trimmomatic/TrimmomaticManual_V0.32.pdf)
 
 3. Provide a genome file and a [SRA accession ID](https://www.ncbi.nlm.nih.gov/sra) corresponding to paired-end RNA-Seq files
 - Provide the Species_name and Genome information, and write `None` under Transcriptome, Forward, and Reverse
@@ -67,7 +67,7 @@ Drosophila_melanogaster_no_transcriptome|Drosophila_melanogaster_GCF_000001215.4
 
 ## Augustus processing alternatives
 
-Generally speaking, protein-coding genes and their exon-intron structures can be found in genomic sequences using the program Augustus. There are different approaches when doing so. Whether you want to train Augustus, run it with extrinsic hints or *ab initio*, you need to write `Yes` or `No` under the columns `Augustus_training`, `Augustus_hints`, `Augustus_ab_initio`, respectively. Additionally, if you don't want to run Augustus ab initon or with hints, write `None` under `Augustus_ab_initio_species` or `Augustus_ab_initio_species`, repectively. For which species name to write under the two columns, see sections below.
+Generally speaking, protein-coding genes and their exon-intron structures can be found in genomic sequences using the program Augustus. There are different approaches when doing so. Whether you want to train Augustus, run it with extrinsic hints or *ab initio*, you need to write `Yes` or `No` under the columns `Augustus_training`, `Augustus_hints`, `Augustus_ab_initio`, respectively. Additionally, if you don't want to run Augustus *ab initon* or with hints, write `None` under `Augustus_ab_initio_species` or `Augustus_ab_initio_species`, repectively. For which species name to write under the two columns, see sections below.
 
 ### Ab initio
 
@@ -103,7 +103,7 @@ Remember to name both specimens uniquely and that under the column `Augustus_ab_
 
 The workflow will first finish training `Octopus_bimaculoides` and then run the *ab initio* prediction for the species `Octopus_bimaculoides_alternative` using the parameters within `$AUGUSTUS_CONFIG_PATH/species/Octopus_bimaculoides_train/`.
 
-**Scenario 2:** You have transcriptomic and genomic data for the two *Octopus bimaculoides* specimens, but for sequencing quality is higher for `Octopus_bimaculoides_one`. You train that specimen first. Then, you use the transcritome from `Octopus_bimaculoides_two` to generate extrinsic hints and use the trained parameters from `Octopus_bimaculoides_one`.
+**Scenario 2:** You have transcriptomic and genomic data for the two *Octopus bimaculoides* specimens, but the sequencing quality is higher for `Octopus_bimaculoides_one`. You train that specimen first. Then, you use the transcritome from `Octopus_bimaculoides_two` to generate extrinsic hints and use the trained parameters from `Octopus_bimaculoides_one`.
 
 |Species_name|Genome|Transcriptome|Forward|Reverse|SRA|BUSCO_lineage|Adapter|Augustus_training|Augustus_hints|Augustus_ab_initio|Augustus_ab_initio_species|Augustus_hints_species|
 |--|--|--|--|--|--|--|--|--|--|--|--|--|
@@ -112,7 +112,7 @@ Octopus_bimaculoides_two|Octopus_bimaculoides_two_genome.fna|Octopus_bimaculoide
 
 ### Extrinsic hints
 
-Transcriptome is used to generate "hints" by providing evidence about the location of introns and exons. To do so, user has to provide genome and transcriptome files, busco_lineage to quality check transcriptome file, mark `Yes` under `Augustus_hints` and the name of the species under `Augustus_hints_species`. 
+Transcriptome is used to generate "hints" by providing evidence about the location of introns and exons. To do so, user has to provide genome and transcriptome files, BUSCO_lineage to quality check transcriptome file, mark `Yes` under `Augustus_hints` and the name of the species under `Augustus_hints_species`. 
 
 If you want to use pre-trained parameters from Augustus (standard and recommended, when applicable), check the available species [here](https://github.com/Gaius-Augustus/Augustus/tree/master/config/species) and provide the name of the subdirectory in the cell corresponding to `Augustus_hints_species`.
 
@@ -127,7 +127,7 @@ Octopus_bimaculoides_two|Octopus_bimaculoides_two_genome.fna|Octopus_bimaculoide
 
 First and foremost, it is important to know that training Augustus is meant to be a "supervised" process, as it needs RELIABLE information on gene structures, as well as the flanking, non-coding regions. However, it is possible to automate this process to some extant, but not without caveats. There are some checking steps built into the rules to warn the user with messages in the log files, as well as stopping the pipeline if something is not as it should be.
 
-If the quality of the transcriptome is low and/or the genome used for mapping is from a species too distantly related from the subject species, [PASApipeline](https://github.com/PASApipeline/PASApipeline/wiki/PASA_RNAseq) **WILL FAIL**. PASA is used to generate the training gene structures, also called bona fide reference gene structures or training set, to train Augustus. If there isn't enough information, what usually happens is that `TransDecoder.Predict`, built into the PASApipeline to find candidate coding regions within transcripts, will throw an error and the analysis can't finish. If that is the case, within the log file `results/{project}/{species}/logs/pasa_{species}.log` the user will see the following message:
+If the quality of the transcriptome is low and/or the genome used for mapping is from a species too distantly related from the subject species, [PASApipeline](https://github.com/PASApipeline/PASApipeline/wiki/PASA_RNAseq) **WILL FAIL**. PASA is used by AugusMake to generate the training gene structures, also called bona fide reference gene structures or training set, to train Augustus. If there isn't enough information, what usually happens is that `TransDecoder.Predict`, built into the PASApipeline to identify ORFs with homology to known proteins. This is first flagged as an error by TransDecoder.predict although the first program from TransDecoder pipeline, `TransDecoder.LongOrfs`, likely only found a small number of ORFs. If that is the case, within the log file `results/{project}/{species}/logs/pasa_{species}.log` the user will see the following message:
 
 ```
 ERROR in PASApipeline; {species} probably doesn't have enough information to run TransDecoder; 
@@ -139,16 +139,24 @@ If there are MANY missing orthologs, it could be that the transcriptome assembly
 TRAINING {species} IS NOT POSSIBLE AT THE MOMENT
 ```
 
-**If that is the case, it is NOT possible to continue training this species.** If so, the user should remove this species from the input table as a training species and re-run the workflow. Instead, one could run predictions with extrinsic hints and/or **ab initio** using one of the available species [here](https://github.com/Gaius-Augustus/Augustus/tree/master/config/species). 
+**If that is the case, it is NOT possible to continue training this species.** If so, the user should remove the species from the input table as a training species and re-run the workflow. As an alternative, one could run predictions with extrinsic hints and/or **ab initio** using one of the available species [here](https://github.com/Gaius-Augustus/Augustus/tree/master/config/species), while still keeping in mind the results might not be ideal if the genome file is from a distant relative from the target species. 
 
 If the PASApipeline finished adequately, there is a high change that no other errors will be thrown up until the actual Augustus training step. During said step, if there are less than 200 gene structures, which is the absolute minimum for acceptable performance, the analysis will also fail. Like before, a message will be given flagging this in `results/{project}/{species}/logs/augustus_training_{species}.log`:
 
 ```
-There are fewer than 200 gene structures in results/{project}/{species}/augustus_training_{species}/main_results/{species}_filtered_bonafide.gbff;
+ERROR: There are fewer than 200 gene structures in results/{project}/{species}/augustus_training_{species}/main_results/{species}_noerror_genes_refiltered_bonafide.gbff;
 TRAINING {species} IS NOT POSSIBLE AT THE MOMENT
 ```
 
-If training is finished successfully and the user has other species listed in the input table for which predictions **ab initio** and/or with hints will be done using the trained parameters from another species, the predictions will continue as expected.
+Or, if there are exactly 200 genes and nothing left to be used for training, this will be seen:
+
+```
+ERROR: there are exactly 200 genes in test set: results/{project}/{species}/augustus_training_{species}/main_results/{species}_noerror_genes_refiltered_bonafide.gbff.test;
+training set empty: results/{project}/{species}/augustus_training_{species}/main_results/{species}_noerror_genes_refiltered_bonafide.gbff.train;
+TRAINING {species} IS NOT POSSIBLE AT THE MOMENT
+```
+
+If training is finished successfully and the user has other species listed in the input table for which predictions **ab initio** and/or with hints will be done using the trained parameters, the predictions will continue as expected.
 
 However, as aforemetioned, training augustus is meant to be a supervised process. It could very well be that `Species_one` was trained seemingly successfuly and subsequent steps for `Species_two` are done as expected using the new parameters. However, it could be that upon closer inspection of the report accuracy values listed at the end of `results/{project}/{species}/augustus_training_{species}/main_results/{species}_augustus_training.out` for `Species_one`, the user finds out training results were not as good. If so, **meta parameters optimization** would need to be done manually by the user and augustus run again. This is because there is yet no automated check built into the workflow to modify this. 
 
@@ -161,7 +169,7 @@ With all of that being said, to train augustus, the user needs to provide genome
 |--|--|--|--|--|--|--|--|--|--|--|--|--|
 Octopus_bimaculoides|Octopus_bimaculoides_genome.fna|Octopus_bimaculoides_transcriptome.fna|None|None|None|mollusca_odb10|None|Yes|No|No|None|None|
 
-Remember: you CAN NOT use a name under the column "Species_name" that would crash with a species subdirectory from [here](https://github.com/Gaius-Augustus/Augustus/tree/master/config/species). So, if you want to train a new Drosophila melanogaster sample, do not name it `fly`, name it `Drosophila_melanogaster`. Then, let's say you want to use the newly trained parameters to predict genes for another specimen of `D. melanogaster`, fill the information in the cells like this:
+Remember: you CAN NOT use a name under the column "Species_name" that would crash with a species subdirectory from [here](https://github.com/Gaius-Augustus/Augustus/tree/master/config/species). So, if you want to train a new *Drosophila melanogaster* sample, do not name it `fly`, name it `Drosophila_melanogaster`. Then, let's say you want to use the newly trained parameters to predict genes for another specimen of `D. melanogaster`, fill the information in the cells like this:
 
 
 |Species_name|Genome|Transcriptome|Forward|Reverse|SRA|BUSCO_lineage|Adapter|Augustus_training|Augustus_hints|Augustus_ab_initio|Augustus_ab_initio_species|Augustus_hints_species|
