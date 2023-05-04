@@ -151,6 +151,7 @@ Remember to:
 1. Create snakejob_logs in the working directory
 2. Modify user.email@gmail.com
 3. Change values for --jobs, --cores, --local-cores, and --max-threads accordingly 
+4. Change -q queue name
 
 Make sure you set a low value for `--local-cores` to not take up too many resources from your host node. Likewise, it is not recommended to let a lot of `--jobs` to run in parallel, for similar reasons. Lastly, I like to set a `--max-threads` limit to ensure no rule "hogs" too many threads. This is often necessary because the number of thread-use per rule is set as a percentage of the total resources provided by the user. e.g.: If you can and want to use 110 threads, a rule like genome_guided_trinity will "take" 40% of these, 44 threads, and that is often an overkill. So, by limiting the maximum number of threads to 25, other jobs can run simultaneously, while making sure Trinity still has a "decent" number of threads to use. 
 
