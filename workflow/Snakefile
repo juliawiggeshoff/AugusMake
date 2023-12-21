@@ -886,7 +886,7 @@ rule augustus_hints:
 onsuccess:
     print("Workflow finished, no error!")
     print("Generating report...")
-    shell("snakemake --report report.zip")
+    shell("snakemake --report report.zip --configfile {workflow.configfiles}")
     print("Done!")
 
 onerror:
